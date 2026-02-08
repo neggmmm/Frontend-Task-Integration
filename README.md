@@ -153,11 +153,6 @@ Create a new agent. Send the full form data as JSON.
     "allowHangUp": true,
     "allowCallback": false,
     "liveTransfer": false
-  },
-  "advancedSettings": {
-    "customKeys": "key1",
-    "tags": "sales",
-    "liveApis": "crm"
   }
 }
 ```

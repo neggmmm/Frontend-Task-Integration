@@ -123,9 +123,6 @@ export interface AgentFormInitialData {
   firstMessage?: string;
   callScript?: string;
   serviceDescription?: string;
-  customKeys?: string;
-  tags?: string;
-  liveApis?: string;
 }
 
 interface AgentFormProps {
@@ -158,11 +155,6 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Advanced Settings
-  const [customKeys, setCustomKeys] = useState(initialData?.customKeys ?? "");
-  const [tags, setTags] = useState(initialData?.tags ?? "");
-  const [liveApis, setLiveApis] = useState(initialData?.liveApis ?? "");
 
   // Test Call
   const [testFirstName, setTestFirstName] = useState("");
@@ -559,54 +551,6 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
             </FieldGroup>
           </CollapsibleSection>
 
-          {/* Section 7: Advanced Settings */}
-          <CollapsibleSection
-            title="Advanced Settings"
-            description="Configure custom keys, tags, and live APIs for this agent."
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Custom Keys</Label>
-                <Select value={customKeys} onValueChange={setCustomKeys}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select custom key" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="key1">Key 1</SelectItem>
-                    <SelectItem value="key2">Key 2</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Tags</Label>
-                <Select value={tags} onValueChange={setTags}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select tags" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sales">Sales</SelectItem>
-                    <SelectItem value="support">Support</SelectItem>
-                    <SelectItem value="marketing">Marketing</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
-                <Label>Live APIs</Label>
-                <Select value={liveApis} onValueChange={setLiveApis}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select live API" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="crm">CRM Integration</SelectItem>
-                    <SelectItem value="calendar">Calendar API</SelectItem>
-                    <SelectItem value="payment">Payment Gateway</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CollapsibleSection>
         </div>
 
         {/* Right Column — Sticky Test Call Card */}

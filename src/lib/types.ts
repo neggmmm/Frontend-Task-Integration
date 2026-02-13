@@ -43,3 +43,31 @@ export interface AttachmentRegisterResponse {
   fileSize: number
   mimeType: string
 }
+
+export interface AgentTools {
+  allowHangUp: boolean
+  allowCallback: boolean
+  liveTransfer: boolean
+}
+
+export type CallType = 'inbound' | 'outbound'
+
+export interface AgentCreateRequest {
+  name: string
+  description?: string
+  callType: CallType
+  language: string
+  voice: string
+  prompt: string
+  model: string
+  latency?: number
+  speed?: number
+  callScript?: string
+  serviceDescription?: string
+  attachments?: string[]
+  tools?: AgentTools
+}
+
+export interface AgentResponse extends AgentCreateRequest {
+  id: string
+}

@@ -49,7 +49,7 @@ import { usePrompts } from "@/hooks/usePrompts";
 import { useVoices } from "@/hooks/useVoices";
 import { useModels } from "@/hooks/useModels";
 import { uploadFile } from "@/lib/attachments";
-import { saveAgent } from "@/lib/agents";
+import { saveAgent, initiateTestCall } from "@/lib/agents";
 import { showToast } from "@/lib/toast";
 
 interface UploadedFile {
@@ -178,6 +178,8 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
   const [testLastName, setTestLastName] = useState("");
   const [testGender, setTestGender] = useState("");
   const [testPhone, setTestPhone] = useState("");
+  const [isTestCalling, setIsTestCalling] = useState(false);
+  const [testCallError, setTestCallError] = useState<string | null>(null);
 
   // Badge counts for required fields
   const basicSettingsMissing = [agentName, callType, language, voice, prompt, model].filter(
@@ -354,6 +356,84 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
       showToast(errorMsg, 'error')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleTestCall = async () => {
+    // Step 1: Validate test call fields
+    if (!testFirstName.trim()) {
+      setTestCallError('First name is required')
+      return
+    }
+    if (!testLastName.trim()) {
+      setTestCallError('Last name is required')
+      return
+    }
+    if (!testGender) {
+      setTestCallError('Gender is required')
+      return
+    }
+    if (!testPhone.trim()) {
+      setTestCallError('Phone number is required')
+      return
+    }
+
+    setIsTestCalling(true)
+    setTestCallError(null)
+
+    try {
+      // Step 2: Auto-save if agent not yet created
+      let currentAgentId = agentId
+      if (!currentAgentId) {
+        // Validate basic settings for auto-save
+        if (!agentName.trim() || !callType || !language || !voice || !prompt || !model) {
+          showToast('Please fill all required agent settings before testing','error')
+          return
+        }
+
+        showToast('Auto-saving agent before test call...', 'info')
+        const agentData = {
+          name: agentName,
+          description: description || undefined,
+          callType: callType as 'inbound' | 'outbound',
+          language,
+          voice,
+          prompt,
+          model,
+          latency: latency[0],
+          speed: speed[0],
+          callScript: callScript || undefined,
+          serviceDescription: serviceDescription || undefined,
+          attachments: attachmentIds,
+          tools: {
+            allowHangUp: true,
+            allowCallback: false,
+            liveTransfer: false,
+          },
+        }
+
+        const saveResponse = await saveAgent(null, agentData)
+        currentAgentId = saveResponse.id
+        setAgentId(currentAgentId)
+      }
+
+      // Step 3: Call the test call API
+      const testCallData = {
+        firstName: testFirstName,
+        lastName: testLastName,
+        gender: testGender,
+        phoneNumber: testPhone,
+      }
+
+      const response = await initiateTestCall(currentAgentId, testCallData)
+
+      showToast('Test call initiated', 'success')
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to initiate test call'
+      setTestCallError(errorMsg)
+      showToast(errorMsg, 'error')
+    } finally {
+      setIsTestCalling(false)
     }
   }
 
@@ -796,9 +876,17 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                     />
                   </div>
 
-                  <Button className="w-full">
+                  {testCallError && (
+                    <p className="text-sm text-destructive">{testCallError}</p>
+                  )}
+
+                  <Button 
+                    className="w-full"
+                    onClick={handleTestCall}
+                    disabled={isTestCalling}
+                  >
                     <Phone className="mr-2 h-4 w-4" />
-                    Start Test Call
+                    {isTestCalling ? 'Calling...' : 'Start Test Call'}
                   </Button>
                 </div>
               </CardContent>
@@ -810,7 +898,12 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
       {/* Sticky bottom save bar */}
       <div className="sticky bottom-0 -mx-6 -mb-6 border-t bg-background px-6 py-4">
         <div className="flex justify-end">
-          <Button>{saveLabel}</Button>
+          <Button 
+          onClick={handleSave}
+          disabled={isSaving}
+        >
+          {isSaving ? 'Saving...' : saveLabel}
+        </Button>
         </div>
       </div>
 

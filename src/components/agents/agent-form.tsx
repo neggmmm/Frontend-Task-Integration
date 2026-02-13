@@ -44,6 +44,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import useLanguages from "@/hooks/useLanguages";
+import { usePrompts } from "@/hooks/usePrompts";
+import { useVoices } from "@/hooks/useVoices";
+import { useModels } from "@/hooks/useModels";
 
 interface UploadedFile {
   name: string;
@@ -93,9 +97,8 @@ function CollapsibleSection({
                   </Badge>
                 )}
                 <ChevronDown
-                  className={`h-5 w-5 text-muted-foreground transition-transform duration-200 ${
-                    open ? "rotate-180" : ""
-                  }`}
+                  className={`h-5 w-5 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""
+                    }`}
                 />
               </div>
             </div>
@@ -140,7 +143,10 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
   const [latency, setLatency] = useState([initialData?.latency ?? 0.5]);
   const [speed, setSpeed] = useState([initialData?.speed ?? 110]);
   const [description, setDescription] = useState(initialData?.description ?? "");
-
+  const { languages, loading: languagesLoading, error: languagesError } = useLanguages();
+  const { voices, loading: voicesLoading, error: voicesError } = useVoices();
+  const { prompts, loading: promptsLoading, error: promptsError } = usePrompts();
+  const {models, loading: modelsLoading, error: modelsError} = useModels();
   // Call Script
   const [callScript, setCallScript] = useState(initialData?.callScript ?? "");
 
@@ -278,10 +284,22 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                     <SelectValue placeholder="Select language" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="en">English</SelectItem>
-                    <SelectItem value="ar">Arabic</SelectItem>
-                    <SelectItem value="fr">French</SelectItem>
-                    <SelectItem value="es">Spanish</SelectItem>
+                    {languages?.map((lang) => (
+                      <SelectItem key={lang.id} value={lang.code}>
+                        {lang.name} 
+                      </SelectItem>
+                    ))}
+
+                    {!languagesLoading && languages?.length === 0 && (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">
+                        No languages available
+                      </div>
+                    )}
+
+                    {languagesError && (
+                      <div className="px-3 py-2 text-sm text-destructive">
+                        Failed to load languages
+                        </div>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -295,12 +313,23 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                     <SelectValue placeholder="Select voice" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="alloy">Alloy</SelectItem>
-                    <SelectItem value="echo">Echo</SelectItem>
-                    <SelectItem value="fable">Fable</SelectItem>
-                    <SelectItem value="onyx">Onyx</SelectItem>
-                    <SelectItem value="nova">Nova</SelectItem>
-                    <SelectItem value="shimmer">Shimmer</SelectItem>
+                    {voices?.map((voice) => (
+                      <SelectItem key={voice.id} value={voice.id} >
+                          {voice.name} <span className="px-2 bg-amber-200 rounded">{voice.language}</span>
+                      </SelectItem>
+                    ))}
+
+                    {!voicesLoading && voices?.length === 0 && (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">
+                        No voices available
+                      </div>
+                    )}
+
+                    {voicesError && (
+                      <div className="px-3 py-2 text-sm text-destructive">
+                        Error loading voices
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -314,10 +343,23 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                     <SelectValue placeholder="Select prompt" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="default">Default Prompt</SelectItem>
-                    <SelectItem value="sales">Sales Prompt</SelectItem>
-                    <SelectItem value="support">Support Prompt</SelectItem>
-                    <SelectItem value="custom">Custom Prompt</SelectItem>
+                    {prompts?.map((prompt)=>(
+                      <SelectItem key={prompt.id} value={prompt.id}>
+                        {prompt.name}
+                      </SelectItem>
+                    ))}
+
+                    {!promptsLoading && prompts?.length === 0 && (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">
+                        No prompts available
+                      </div>
+                    )}
+
+                    {promptsError && (
+                      <div className="px-3 py-2 text-sm text-destructive">
+                        Error loading prompts
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -331,9 +373,23 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                     <SelectValue placeholder="Select model" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pro">Pro</SelectItem>
-                    <SelectItem value="standard">Standard</SelectItem>
-                    <SelectItem value="flex">Flex</SelectItem>
+                    {models?.map((model)=>(
+                      <SelectItem key={model.id} value={model.id}>
+                        {model.name}
+                      </SelectItem>
+                    ))}
+
+                    {!modelsLoading && models?.length === 0 && (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">
+                        No models available
+                      </div>
+                    )}
+
+                    {modelsError && (
+                      <div className="px-3 py-2 text-sm text-destructive">
+                        Error loading models
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -419,11 +475,10 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
             <div className="space-y-4">
               {/* Drop zone */}
               <div
-                className={`relative rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
-                  isDragging
+                className={`relative rounded-lg border-2 border-dashed p-8 text-center transition-colors ${isDragging
                     ? "border-primary bg-primary/5"
                     : "border-muted-foreground/25"
-                }`}
+                  }`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}

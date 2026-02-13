@@ -1,335 +1,119 @@
-# Frontend Developer Skills Test
+## Implementation Summary
+
+Here's a step-by-step breakdown of how all required tasks and bonus features were implemented:
+
+### Phase 1: API Infrastructure & Environment
+
+1. **Proxy Configuration**
+   - Set up Next.js rewrites in `next.config.ts` to proxy API calls from `/api/*` to the mock server
+   - Configure `NEXT_PUBLIC_API_BASE_URL` environment variable to avoid CORS issues
+   - Set environment to `http://localhost:3001` (mock API server)
+
+2. **API Client Layer** (`src/lib/api.ts`)
+   - Created typed fetch wrapper with `get`, `post`, and `put` functions
+   - Implemented error handling with status codes and response parsing
+   - Added JSON content-type headers for all requests
+
+### Phase 2: Types & Data Models
+
+3. **TypeScript Interfaces** (`src/lib/types.ts`)
+   - Defined interfaces for dropdown data: `Language`, `Voice`, `Prompt`, `Model`
+   - Created request/response types for file uploads: `AttachmentUploadUrlResponse`, `AttachmentRegisterRequest`, `AttachmentRegisterResponse`
+   - Typed agent operations: `AgentCreateRequest`, `AgentResponse`
+   - Created test call types: `TestCallRequest`, `TestCallResponse`
+
+### Phase 3: Task 1 - Dynamic Dropdown Data
+
+4. **Custom Hooks for Dropdowns** (`src/hooks/`)
+   - Created `useLanguages.ts`, `useVoices.ts`, `usePrompts.ts`, `useModels.ts`
+   - Each hook fetches data from the API on component mount
+   - Returns `{data, loading, error, reload}` for flexible error handling
+
+5. **Dropdown Integration** (`src/components/agents/agent-form.tsx`)
+   - Replaced hardcoded `<SelectItem>` lists with dynamic data from hooks
+   - Added loading states showing "Loading..." in dropdowns
+   - Added error states with user-friendly messages
+   - Implemented voice tag display as badge in voice dropdown
+
+### Phase 4: Task 2 - File Upload (3-Step Flow)
+
+6. **Upload Helper** (`src/lib/attachments.ts`)
+   - Implemented complete 3-step file upload process:
+     - Step 1: Get signed URL from `POST /api/attachments/upload-url`
+     - Step 2: Upload binary file to signed URL with `PUT`
+     - Step 3: Register attachment metadata with `POST /api/attachments`
+   - Added error handling and logging for failed uploads
+
+7. **File Upload UI Integration** (`src/components/agents/agent-form.tsx`)
+   - Added file upload state tracking: `uploadingFiles`, `uploadedFileNames`, `attachmentIds`
+   - Implemented drag-and-drop file handling
+   - Added file type validation (.pdf, .doc, .docx, .txt, .csv, .xlsx, .xls)
+   - Showed per-file upload status: "Uploading..." → "✓ Uploaded"
+   - Display upload error messages with details
+   - Store returned attachment IDs for agent save
+
+### Phase 5: Task 3 - Save Agent
+
+8. **Agent API Functions** (`src/lib/agents.ts`)
+   - Created `createAgent()` - POST request to create new agent
+   - Created `updateAgent()` - PUT request to update existing agent
+   - Created unified `saveAgent()` function that handles both operations
+   - Added error handling and console logging
+
+9. **Save Implementation** (`src/components/agents/agent-form.tsx`)
+   - Added form validation for required fields:
+     - Agent Name, Call Type, Language, Voice, Prompt, Model
+   - Implemented `handleSave()` function that:
+     - Validates all required fields
+     - Collects form data including attachment IDs
+     - Calls `saveAgent()` API
+     - Stores returned agent ID for subsequent saves
+     - Shows success/error toasts
+     - Clears form only for new agents (preserves data for edits)
+   - Wired Save button with loading state ("Saving..." while in progress)
+   - Display save errors inline and in toast notifications
+
+### Phase 6: Task 4 - Test Call
+
+10. **Test Call API** (`src/lib/agents.ts`)
+    - Created `initiateTestCall()` function for `POST /api/agents/:id/test-call`
+    - Takes test call data (firstName, lastName, gender, phoneNumber)
+
+11. **Test Call Implementation** (`src/components/agents/agent-form.tsx`)
+    - Added form validation for test call fields
+    - Implemented auto-save logic:
+      - If agent not yet created → automatically save before test call
+      - Validates all basic settings before auto-save
+      - Shows "Auto-saving..." info toast
+    - Implemented `handleTestCall()` function with 3-step flow:
+      - Validate test form
+      - Auto-save if needed
+      - Call API to initiate test
+    - Wired button with loading state ("Calling..." while in progress)
+    - Show call ID in success toast
+
+### Phase 7: Bonus Features
+
+12. **Toast Notifications** (`src/lib/toast.ts`, `src/app/toast-provider.tsx`)
+    - Replaced default browser alerts with `react-toastify`
+    - Installed `react-toastify` package
+    - Created toast helper with success/error/info types
+    - Added ToastProvider in root layout (as separate client component to avoid metadata conflicts)
+    - Toasts auto-dismiss after 3 seconds, clickable to close
+
+13. **Loading States**
+    - Dropdown selects show loading placeholder while fetching
+    - Error states display user-friendly messages in dropdowns
+    - Save button shows "Saving..." during API call
+    - Test button shows "Calling..." during test call
+
+14. **Error Handling**
+    - File upload errors include specific failure reasons
+    - Form validation errors show which field is missing
+    - API errors displayed both inline and in toasts
+    - Network errors caught and shown to user
+
+15. **Theme Customization**
+    - Customized toast colors to match app theme
+    - Added consistent error styling across form validations
 
-## Overview
-
-This project contains a **Create Agent** page from the Olimi AI dashboard. The UI is fully built but entirely static — all form dropdowns are hardcoded, file uploads don't persist, and the save/test-call buttons are non-functional.
-
-**Your task:** Integrate the static UI with the provided mock API to make the form fully functional.
-
-## Tech Stack
-
-- **Next.js 16** (App Router)
-- **React 19**
-- **TypeScript**
-- **shadcn/ui** component library
-- **Tailwind CSS 4**
-- **json-server** (mock API)
-
-## Getting Started
-
-### 1. Install dependencies
-
-```bash
-npm install
-```
-
-### 2. Set up environment
-
-```bash
-cp .env.example .env.local
-```
-
-### 3. Start the mock API server
-
-```bash
-npm run mock-api
-```
-
-This starts `json-server` at **http://localhost:3001** with routes prefixed under `/api`.
-
-### 4. Start the Next.js development server
-
-```bash
-npm run dev
-```
-
-Open **http://localhost:3000** — you'll be redirected to the Create Agent page.
-
-> **Note:** Both servers must be running simultaneously. Use two terminal windows/tabs.
-
-## Project Structure
-
-```
-├── db.json                          # Mock database (json-server)
-├── server/
-│   ├── middleware.js                 # Custom endpoints (upload, test-call)
-│   └── routes.json                  # API route mapping (/api/* → /*)
-├── src/
-│   ├── app/
-│   │   └── (dashboard)/
-│   │       ├── layout.tsx           # Dashboard layout with sidebar
-│   │       └── agents/
-│   │           └── createAgent/
-│   │               └── page.tsx     # Create Agent page
-│   └── components/
-│       ├── agents/
-│       │   └── agent-form.tsx       # ⭐ MAIN FILE — this is where you'll work
-│       ├── ui/                      # shadcn/ui components (do not modify)
-│       ├── app-sidebar.tsx          # Sidebar navigation
-│       ├── nav-main.tsx             # Navigation menu
-│       └── nav-user.tsx             # User menu
-└── .env.example                     # Environment template
-```
-
-The primary file you'll be modifying is **`src/components/agents/agent-form.tsx`**. You may create helper files (hooks, utilities, API clients) as needed.
-
-## API Documentation
-
-Base URL: `http://localhost:3001/api` (configured via `NEXT_PUBLIC_API_BASE_URL`)
-
-### Reference Data Endpoints
-
-These endpoints return static lists for populating form dropdowns.
-
-#### GET /api/languages
-
-Returns available languages.
-
-```json
-[
-  { "id": "en", "name": "English", "code": "en" },
-  { "id": "ar", "name": "Arabic", "code": "ar" },
-  { "id": "fr", "name": "French", "code": "fr" }
-]
-```
-
-#### GET /api/voices
-
-Returns available voices. **Note the `tag` field** — display it as a badge next to the voice name.
-
-```json
-[
-  { "id": "alloy", "name": "Alloy", "tag": "Premium", "language": "en" },
-  { "id": "echo", "name": "Echo", "tag": "Standard", "language": "en" }
-]
-```
-
-#### GET /api/prompts
-
-Returns available prompt templates.
-
-```json
-[
-  { "id": "default", "name": "Default Prompt", "description": "General-purpose prompt" },
-  { "id": "sales", "name": "Sales Prompt", "description": "Optimized for sales" }
-]
-```
-
-#### GET /api/models
-
-Returns available AI models.
-
-```json
-[
-  { "id": "pro", "name": "Pro", "description": "Highest quality, lowest latency" },
-  { "id": "standard", "name": "Standard", "description": "Balanced quality and cost" }
-]
-```
-
-### Agent CRUD
-
-#### POST /api/agents
-
-Create a new agent. Send the full form data as JSON.
-
-**Request:**
-
-```json
-{
-  "name": "Sales Assistant",
-  "description": "Handles inbound sales calls",
-  "callType": "inbound",
-  "language": "en",
-  "voice": "alloy",
-  "prompt": "sales",
-  "model": "pro",
-  "latency": 0.5,
-  "speed": 110,
-  "callScript": "...",
-  "serviceDescription": "...",
-  "attachments": ["attachment-id-1"],
-  "tools": {
-    "allowHangUp": true,
-    "allowCallback": false,
-    "liveTransfer": false
-  }
-}
-```
-
-**Response** (201 Created):
-
-```json
-{
-  "id": "generated-id",
-  "name": "Sales Assistant",
-  "...": "..."
-}
-```
-
-#### PUT /api/agents/:id
-
-Update an existing agent. Same body structure as POST.
-
-### File Upload (3-Step Process)
-
-Uploading a file to the agent's reference data requires three API calls:
-
-#### Step 1: Get a signed upload URL
-
-**POST /api/attachments/upload-url**
-
-```json
-// No body required
-```
-
-**Response:**
-
-```json
-{
-  "key": "unique-file-key",
-  "signedUrl": "http://localhost:3001/upload/unique-file-key",
-  "expiresIn": 3600
-}
-```
-
-#### Step 2: Upload the file to the signed URL
-
-**PUT {signedUrl}**
-
-Send the file as the request body (binary).
-
-```
-PUT http://localhost:3001/upload/unique-file-key
-Content-Type: application/octet-stream
-
-<file binary data>
-```
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "key": "unique-file-key",
-  "message": "File uploaded successfully"
-}
-```
-
-#### Step 3: Register the attachment
-
-**POST /api/attachments**
-
-```json
-{
-  "key": "unique-file-key",
-  "fileName": "product-catalog.pdf",
-  "fileSize": 1048576,
-  "mimeType": "application/pdf"
-}
-```
-
-**Response** (201 Created):
-
-```json
-{
-  "id": "generated-id",
-  "key": "unique-file-key",
-  "fileName": "product-catalog.pdf",
-  "fileSize": 1048576,
-  "mimeType": "application/pdf"
-}
-```
-
-> Include the returned attachment `id` in the agent's `attachments` array when saving.
-
-### Test Call
-
-#### POST /api/agents/:id/test-call
-
-Initiate a test call for an agent. The agent must be saved first.
-
-**Request:**
-
-```json
-{
-  "firstName": "John",
-  "lastName": "Doe",
-  "gender": "male",
-  "phoneNumber": "+1234567890"
-}
-```
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "callId": "generated-call-id",
-  "agentId": "agent-id",
-  "status": "initiated"
-}
-```
-
-## Required Tasks
-
-### Task 1: Fetch dropdown data from the API
-
-Replace all hardcoded `<SelectItem>` lists in the Basic Settings section with data fetched from the API:
-
-- **Language** dropdown → `GET /api/languages`
-- **Voice** dropdown → `GET /api/voices` (display the `tag` as a badge)
-- **Prompt** dropdown → `GET /api/prompts`
-- **Model** dropdown → `GET /api/models`
-
-### Task 2: Implement file upload
-
-Replace the current client-side-only file handling with the 3-step upload flow:
-
-1. Request a signed URL (`POST /api/attachments/upload-url`)
-2. Upload the file to the signed URL (`PUT {signedUrl}`)
-3. Register the attachment (`POST /api/attachments`)
-
-Show upload progress or status indicators for each file.
-
-### Task 3: Implement save agent
-
-Wire up the **Save Agent** button to `POST /api/agents`:
-
-- Collect all form fields and send them as JSON
-- Show a success toast/notification on save
-- Store the returned agent `id` so subsequent saves use `PUT /api/agents/:id`
-
-### Task 4: Implement test call
-
-Wire up the **Start Test Call** button:
-
-- If the agent has unsaved changes, auto-save first (POST or PUT)
-- Then call `POST /api/agents/:id/test-call` with the test call form data
-- Show the call status to the user
-
-## Bonus Tasks
-
-These are optional but will positively impact your evaluation:
-
-- **Unsaved changes alert** — Warn the user when navigating away with unsaved form changes
-- **Loading states** — Show skeleton/spinner states while fetching dropdown data
-- **Error handling** — Display user-friendly error messages for failed API calls
-- **Form validation** — Validate required fields before save, show inline errors
-- **UI/UX improvements** — Any improvements you think enhance the user experience
-
-## Evaluation Criteria
-
-| Area | What we look for |
-|------|-----------------|
-| **Code quality** | Clean, readable, well-organized code |
-| **React patterns** | Proper use of hooks, state management, component composition |
-| **API integration** | Correct HTTP methods, error handling, loading states |
-| **TypeScript** | Proper typing, interfaces, type safety |
-| **Error handling** | Graceful failures, user feedback, edge cases |
-| **Attention to detail** | Following instructions, matching existing code style |
-
-## Time Expectation
-
-This task is designed to take approximately **2–3 hours**. Focus on completing the required tasks well rather than rushing through the bonus tasks.
-
-Good luck!

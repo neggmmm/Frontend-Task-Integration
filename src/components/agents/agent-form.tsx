@@ -49,6 +49,8 @@ import { usePrompts } from "@/hooks/usePrompts";
 import { useVoices } from "@/hooks/useVoices";
 import { useModels } from "@/hooks/useModels";
 import { uploadFile } from "@/lib/attachments";
+import { saveAgent } from "@/lib/agents";
+import { showToast } from "@/lib/toast";
 
 interface UploadedFile {
   name: string;
@@ -158,6 +160,11 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
   const [attachmentIds, setAttachmentIds] = useState<string[]>([]) // attachment IDs from backend
   const [uploadError, setUploadError] = useState<string | null>(null)
 
+  // states for save
+  const [agentId, setAgentId] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
   // Service/Product Description
   const [serviceDescription, setServiceDescription] = useState(initialData?.serviceDescription ?? "");
 
@@ -245,6 +252,111 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
     handleFiles(e.dataTransfer.files);
   };
 
+  const clearForm = () => {
+    // Clear basic settings
+    setAgentName('')
+    setCallType('')
+    setLanguage('')
+    setVoice('')
+    setPrompt('')
+    setModel('')
+    setLatency([0.5])
+    setSpeed([110])
+    setDescription('')
+    
+    // Clear scripts
+    setCallScript('')
+    setServiceDescription('')
+    
+    // Clear files
+    setUploadedFiles([])
+    setUploadedFileNames(new Set())
+    setAttachmentIds([])
+    setUploadError(null)
+    
+    // Clear test call
+    setTestFirstName('')
+    setTestLastName('')
+    setTestGender('')
+    setTestPhone('')
+  }
+
+  const handleSave = async () => {
+    // Validate required fields
+    if (!agentName.trim()) {
+      setSaveError('Agent name is required')
+      showToast('Agent name is required', 'error')
+      return
+    }
+    if (!callType) {
+      setSaveError('Call type is required')
+      showToast('Call type is required', 'error')
+      return
+    }
+    if (!language) {
+      setSaveError('Language is required')
+      showToast('Language is required', 'error')
+      return
+    }
+    if (!voice) {
+      setSaveError('Voice is required')
+      showToast('Voice is required', 'error')
+      return
+    }
+    if (!prompt) {
+      setSaveError('Prompt is required')
+      showToast('Prompt is required', 'error')
+      return
+    }
+    if (!model) {
+      setSaveError('Model is required')
+      showToast('Model is required', 'error')
+      return
+    }
+
+    setIsSaving(true)
+    setSaveError(null)
+    try {
+      const agentData = {
+        name: agentName,
+        description: description || undefined,
+        callType: callType as 'inbound' | 'outbound',
+        language,
+        voice,
+        prompt,
+        model,
+        latency: latency[0],
+        speed: speed[0],
+        callScript: callScript || undefined,
+        serviceDescription: serviceDescription || undefined,
+        attachments: attachmentIds,
+        tools: {
+          allowHangUp: true,
+          allowCallback: false,
+          liveTransfer: false,
+        },
+      }
+
+      const response = await saveAgent(agentId, agentData)
+      
+      // Store the agent ID for subsequent saves
+      setAgentId(response.id)
+      
+      showToast(`Agent ${agentId ? 'updated' : 'created'} successfully!`, 'success')
+      
+      // Clear form after successful save
+      if (!agentId) {
+        clearForm()
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to save agent'
+      setSaveError(errorMsg)
+      showToast(errorMsg, 'error')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const heading = mode === "create" ? "Create Agent" : "Edit Agent";
   const saveLabel = mode === "create" ? "Save Agent" : "Save Changes";
 
@@ -252,7 +364,12 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
     <div className="flex flex-1 flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">{heading}</h1>
-        <Button>{saveLabel}</Button>
+        <Button 
+          onClick={handleSave}
+          disabled={isSaving}
+        >
+          {isSaving ? 'Saving...' : saveLabel}
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

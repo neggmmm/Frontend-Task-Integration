@@ -71,3 +71,19 @@ export interface AgentCreateRequest {
 export interface AgentResponse extends AgentCreateRequest {
   id: string
 }
+
+
+
+export interface TestCallRequest {
+  firstName: string
+  lastName: string
+  gender: string
+  phoneNumber: string
+}
+
+export interface TestCallResponse {
+  success: boolean
+  callId: string
+  agentId: string
+  status: string
+}

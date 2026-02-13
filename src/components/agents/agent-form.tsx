@@ -48,6 +48,7 @@ import useLanguages from "@/hooks/useLanguages";
 import { usePrompts } from "@/hooks/usePrompts";
 import { useVoices } from "@/hooks/useVoices";
 import { useModels } from "@/hooks/useModels";
+import { uploadFile } from "@/lib/attachments";
 
 interface UploadedFile {
   name: string;
@@ -146,9 +147,16 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
   const { languages, loading: languagesLoading, error: languagesError } = useLanguages();
   const { voices, loading: voicesLoading, error: voicesError } = useVoices();
   const { prompts, loading: promptsLoading, error: promptsError } = usePrompts();
-  const {models, loading: modelsLoading, error: modelsError} = useModels();
+  const { models, loading: modelsLoading, error: modelsError } = useModels();
   // Call Script
   const [callScript, setCallScript] = useState(initialData?.callScript ?? "");
+
+
+  // states for file upload
+  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set()) // file names currently uploading
+  const [uploadedFileNames, setUploadedFileNames] = useState<Set<string>>(new Set()) // file names successfully uploaded
+  const [attachmentIds, setAttachmentIds] = useState<string[]>([]) // attachment IDs from backend
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   // Service/Product Description
   const [serviceDescription, setServiceDescription] = useState(initialData?.serviceDescription ?? "");
@@ -181,21 +189,41 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
   ];
 
   const handleFiles = useCallback(
-    (files: FileList | null) => {
-      if (!files) return;
-      const newFiles: UploadedFile[] = [];
+    async (files: FileList | null) => {
+      if (!files) return
+
+      const newFiles: UploadedFile[] = []
       for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const ext = "." + file.name.split(".").pop()?.toLowerCase();
+        const file = files[i]
+        const ext = '.' + file.name.split('.').pop()?.toLowerCase()
+
         if (ACCEPTED_TYPES.includes(ext)) {
-          newFiles.push({ name: file.name, size: file.size, file });
+          newFiles.push({ name: file.name, size: file.size, file })
+
+          // Start uploading in background
+          setUploadingFiles((prev) => new Set([...prev, file.name]))
+
+          try {
+            const attachment = await uploadFile(file)
+            setAttachmentIds((prev) => [...prev, attachment.id])
+            setUploadedFileNames((prev) => new Set([...prev, file.name])) // Track uploaded file name
+            setUploadError(null)
+          } catch (err) {
+            setUploadError(`Failed to upload ${file.name}: ${err instanceof Error ? err.message : 'Unknown error'}`)
+            console.error(err)
+          } finally {
+            setUploadingFiles((prev) => {
+              const next = new Set(prev)
+              next.delete(file.name)
+              return next
+            })
+          }
         }
       }
-      setUploadedFiles((prev) => [...prev, ...newFiles]);
+      setUploadedFiles((prev) => [...prev, ...newFiles])
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
-  );
+  )
 
   const removeFile = (index: number) => {
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
@@ -299,7 +327,7 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                     {languagesError && (
                       <div className="px-3 py-2 text-sm text-destructive">
                         Failed to load languages
-                        </div>)}
+                    </div>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -313,7 +341,7 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                     <SelectValue placeholder="Select voice" />
                   </SelectTrigger>
                   <SelectContent>
-                    {voices?.map((voice) => (
+                    {voices?.map((voice)=>(
                       <SelectItem key={voice.id} value={voice.id} >
                           {voice.name} <span className="px-2 bg-amber-200 rounded">{voice.language}</span>
                       </SelectItem>
@@ -476,21 +504,13 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
               {/* Drop zone */}
               <div
                 className={`relative rounded-lg border-2 border-dashed p-8 text-center transition-colors ${isDragging
-                    ? "border-primary bg-primary/5"
-                    : "border-muted-foreground/25"
+                  ? "border-primary bg-primary/5"
+                  : "border-muted-foreground/25"
                   }`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
               >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  multiple
-                  accept={ACCEPTED_TYPES.join(",")}
-                  onChange={(e) => handleFiles(e.target.files)}
-                />
                 <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
                 <p className="mt-2 text-sm font-medium">
                   Drag & drop files here, or{" "}
@@ -507,6 +527,9 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                 </p>
               </div>
 
+              {/* Error message */}
+              {uploadError && <p className="text-red-600 text-sm">{uploadError}</p>}
+
               {/* File list */}
               {uploadedFiles.length > 0 ? (
                 <div className="space-y-2">
@@ -519,17 +542,25 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
                         <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                         <span className="text-sm truncate">{f.name}</span>
                         <span className="text-xs text-muted-foreground shrink-0">
-                          {formatFileSize(f.size)}
+                          ({formatFileSize(f.size)})
                         </span>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 shrink-0"
-                        onClick={() => removeFile(i)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {uploadingFiles.has(f.name) && (
+                          <span className="text-xs text-blue-600 font-medium">Uploading...</span>
+                        )}
+                        {uploadedFileNames.has(f.name) && (
+                          <span className="text-xs text-green-600 font-medium">✓ Uploaded</span>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 shrink-0"
+                          onClick={() => removeFile(i)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -665,6 +696,15 @@ export function AgentForm({ mode, initialData }: AgentFormProps) {
           <Button>{saveLabel}</Button>
         </div>
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept=".pdf,.doc,.docx,.txt,.csv,.xlsx,.xls"
+        className="hidden"
+        onChange={(e) => handleFiles(e.currentTarget.files)}
+      />
     </div>
   );
 }
